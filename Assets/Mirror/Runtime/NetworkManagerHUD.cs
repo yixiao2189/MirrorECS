@@ -14,6 +14,8 @@ namespace Mirror
     {
         NetworkManager manager;
 
+        public int frameRate = 24;
+
         // Deprecated 2021-02-24
         [Obsolete("showGUI will be removed unless someone has a valid use case. Simply use or don't use the HUD component.")]
         public bool showGUI = true;
@@ -24,6 +26,15 @@ namespace Mirror
         void Awake()
         {
             manager = GetComponent<NetworkManager>();
+            InitServer();
+        }
+
+        void InitServer()
+        {
+#if UNITY_SERVER
+            Application.targetFrameRate = frameRate;
+            manager.StartServer();
+#endif
         }
 
         void OnGUI()
@@ -90,7 +101,11 @@ namespace Mirror
                 }
                 else
                 {
-                    if (GUILayout.Button("Server Only")) manager.StartServer();
+                    if (GUILayout.Button("Server Only"))
+                    {
+                        Application.targetFrameRate = frameRate;
+                        manager.StartServer();
+                    } 
                 }
             }
             else

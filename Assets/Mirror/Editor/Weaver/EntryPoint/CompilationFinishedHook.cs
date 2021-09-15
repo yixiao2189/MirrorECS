@@ -67,15 +67,18 @@ namespace Mirror.Weaver
         static Assembly FindCompilationPipelineAssembly(string assemblyName) =>
             CompilationPipeline.GetAssemblies().First(assembly => assembly.name == assemblyName);
 
-        static bool CompilerMessagesContainError(CompilerMessage[] messages) =>
-            messages.Any(msg => msg.type == CompilerMessageType.Error);
+        static int CompilerMessagesContainError(CompilerMessage[] messages) {
+           return System.Array.FindIndex(messages, (msg => msg.type == CompilerMessageType.Error && !string.IsNullOrEmpty(msg.message)));
+        }
+           
 
         public static void OnCompilationFinished(string assemblyPath, CompilerMessage[] messages)
         {
             // Do nothing if there were compile errors on the target
-            if (CompilerMessagesContainError(messages))
+            int errorIndex = CompilerMessagesContainError(messages);
+            if (errorIndex >= 0)
             {
-                Debug.Log("Weaver: stop because compile errors on target");
+                Debug.Log($"Weaver: stop because compile errors on target {messages[errorIndex].message}");
                 return;
             }
 
