@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Rendering;
 using UnityEditor.Build.Reporting;
+using System.Linq;
 
 [InitializeOnLoad]
 static class AutoClearMarcroDefine
@@ -45,7 +46,8 @@ static class AutoClearMarcroDefine
 
 public class BuildCallback : IPreprocessBuildWithReport, IPostprocessBuildWithReport
 {
-    public const string SERVER_MACRO_DEFINE = "UNITY_SERVER";
+    public const string SERVER_MACRO_DEFINE = "SERVER_MODE";
+    public const string CLIENT_TEST = "CLIENT_TEST_MODE";
     public  static bool isBuilding = false;
 
     public int callbackOrder => 0;
@@ -64,12 +66,14 @@ public class BuildCallback : IPreprocessBuildWithReport, IPostprocessBuildWithRe
     {
         isBuilding = true;
         symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone);
-        HeadlessMarcroDefine(EditorUserBuildSettings.enableHeadlessMode);
+        var strs =   symbols.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);
+        bool hasClientTest = strs.Any(t => t == CLIENT_TEST);
+        if(EditorUserBuildSettings.enableHeadlessMode && !hasClientTest)
+            HeadlessMarcroDefine();
     }
 
-    void HeadlessMarcroDefine(bool define)
+    void HeadlessMarcroDefine()
     {
-        if (!define) return;
         var newSymbols = symbols + $";{SERVER_MACRO_DEFINE}";
         PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone, newSymbols);
     }

@@ -2,6 +2,7 @@
 // confusion if someone accidentally presses one.
 using System;
 using UnityEngine;
+using System.Linq;
 
 namespace Mirror
 {
@@ -26,15 +27,55 @@ namespace Mirror
         void Awake()
         {
             manager = GetComponent<NetworkManager>();
-            InitServer();
+            
         }
 
-        void InitServer()
+        void Start()
         {
-#if UNITY_SERVER
+            Init();
+        }
+
+        void Init()
+        {
+            StartServer();
+            StartClientTest();
+        }
+
+        void StartServer()
+        {
+#if SERVER_MODE 
             Application.targetFrameRate = frameRate;
             manager.StartServer();
+            Debug.Log("Start With ServerMode!");
 #endif
+        }
+
+        void StartClientTest()
+        {
+#if CLIENT_TEST_MODE
+            string ip;
+            if (!CheckClientTest(out ip))
+            {
+                Application.Quit();
+                return;
+            }
+            Application.targetFrameRate = frameRate;
+            manager.StartClient();
+            Debug.Log($"Start With ClientMode! @{ip}");
+#endif
+        }
+
+        bool CheckClientTest(out string ip)
+        {
+            ip = "localhost";
+            var args = System.Environment.GetCommandLineArgs().Skip(1).ToArray();
+            if (args.Length <= 0)
+                return true;
+            ip = args[0];
+            if (!System.Net.IPAddress.TryParse(args[0], out _))
+                return false;    
+            manager.networkAddress = args[0];
+            return true;
         }
 
         void OnGUI()
