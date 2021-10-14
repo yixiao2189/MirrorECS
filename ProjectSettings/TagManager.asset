@@ -3,20 +3,28 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - NavigationSystem
+  - CMCamera
+  - HeroActionBar
+  - HeroEmoteBar
+  - GameCanvas
+  - PartyHUD
+  - GameNetPortal
+  - MusicPlayer
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - PCs
   - Water
   - UI
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - NPCs
+  - Projectiles
+  - Ground
+  - HeavyObject
+  - Triggers
+  - Debris
   - 
   - 
   - 
