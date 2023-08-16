@@ -185,7 +185,7 @@ namespace Mirror
         NetworkConnectionToClient _connectionToClient;
 
         // get all NetworkBehaviour components
-        public NetworkBehaviour[] NetworkBehaviours { get; private set; }
+        public List<NetworkBehaviour> NetworkBehaviours { get; private set; } = new List<NetworkBehaviour>();
 
         // to save bandwidth, we send one 64 bit dirty mask
         // instead of 1 byte index per dirty component.
@@ -231,7 +231,7 @@ namespace Mirror
             }
 
             // find the right component to invoke the function on
-            if (componentIndex >= NetworkBehaviours.Length)
+            if (componentIndex >= NetworkBehaviours.Count)
             {
                 Debug.LogWarning($"Component [{componentIndex}] not found for [netId={netId}]");
                 return;
@@ -297,11 +297,12 @@ namespace Mirror
             // => Deterministic: https://forum.unity.com/threads/getcomponentsinchildren.4582/#post-33983
             // => Never null. GetComponents returns [] if none found.
             // => Include inactive. We need all child components.
-            NetworkBehaviours = GetComponentsInChildren<NetworkBehaviour>(true);
+            NetworkBehaviours.Clear();
+            NetworkBehaviours.AddRange(GetComponentsInChildren<NetworkBehaviour>(true));
             ValidateComponents();
 
             // initialize each one
-            for (int i = 0; i < NetworkBehaviours.Length; ++i)
+            for (int i = 0; i < NetworkBehaviours.Count; ++i)
             {
                 NetworkBehaviour component = NetworkBehaviours[i];
                 component.netIdentity = this;
@@ -318,7 +319,7 @@ namespace Mirror
                     $"non-networked parent that's disabled, preventing Awake on the networked object " +
                     $"from being invoked, where the NetworkBehaviours array is initialized.", gameObject);
             }
-            else if (NetworkBehaviours.Length > MaxNetworkBehaviours)
+            else if (NetworkBehaviours.Count > MaxNetworkBehaviours)
             {
                 Debug.LogError($"NetworkIdentity {name} has too many NetworkBehaviour components: only {MaxNetworkBehaviours} NetworkBehaviour components are allowed in order to save bandwidth.", this);
             }
@@ -834,8 +835,8 @@ namespace Mirror
             ulong ownerMask = 0;
             ulong observerMask = 0;
 
-            NetworkBehaviour[] components = NetworkBehaviours;
-            for (int i = 0; i < components.Length; ++i)
+            var components = NetworkBehaviours;
+            for (int i = 0; i < components.Count; ++i)
             {
                 NetworkBehaviour component = components[i];
 
@@ -870,8 +871,8 @@ namespace Mirror
         {
             ulong mask = 0;
 
-            NetworkBehaviour[] components = NetworkBehaviours;
-            for (int i = 0; i < components.Length; ++i)
+            var components = NetworkBehaviours;
+            for (int i = 0; i < components.Count; ++i)
             {
                 // on the client, we need to consider different sync scenarios:
                 //
@@ -910,7 +911,7 @@ namespace Mirror
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
-            NetworkBehaviour[] components = NetworkBehaviours;
+            var components = NetworkBehaviours;
 
             // check which components are dirty for owner / observers.
             // this is quite complicated with SyncMode + SyncDirection.
@@ -930,7 +931,7 @@ namespace Mirror
             // perf: only iterate if either dirty mask has dirty bits.
             if ((ownerMask | observerMask) != 0)
             {
-                for (int i = 0; i < components.Length; ++i)
+                for (int i = 0; i < components.Count; ++i)
                 {
                     NetworkBehaviour comp = components[i];
 
@@ -983,7 +984,7 @@ namespace Mirror
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
-            NetworkBehaviour[] components = NetworkBehaviours;
+            var components = NetworkBehaviours;
 
             // check which components are dirty.
             // this is quite complicated with SyncMode + SyncDirection.
@@ -1010,7 +1011,7 @@ namespace Mirror
             if (dirtyMask != 0)
             {
                 // serialize all components
-                for (int i = 0; i < components.Length; ++i)
+                for (int i = 0; i < components.Count; ++i)
                 {
                     NetworkBehaviour comp = components[i];
 
@@ -1041,13 +1042,13 @@ namespace Mirror
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
-            NetworkBehaviour[] components = NetworkBehaviours;
+            var components = NetworkBehaviours;
 
             // first we deserialize the varinted dirty mask
             ulong mask = Compression.DecompressVarUInt(reader);
 
             // now deserialize every dirty component
-            for (int i = 0; i < components.Length; ++i)
+            for (int i = 0; i < components.Count; ++i)
             {
                 // was this one dirty?
                 if (IsDirty(mask, i))
@@ -1084,13 +1085,13 @@ namespace Mirror
         {
             // ensure NetworkBehaviours are valid before usage
             ValidateComponents();
-            NetworkBehaviour[] components = NetworkBehaviours;
+            var components = NetworkBehaviours;
 
             // first we deserialize the varinted dirty mask
             ulong mask = Compression.DecompressVarUInt(reader);
 
             // now deserialize every dirty component
-            for (int i = 0; i < components.Length; ++i)
+            for (int i = 0; i < components.Count; ++i)
             {
                 // was this one dirty?
                 if (IsDirty(mask, i))

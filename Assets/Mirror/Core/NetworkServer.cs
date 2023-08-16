@@ -1206,7 +1206,7 @@ namespace Mirror
         static ArraySegment<byte> CreateSpawnMessagePayload(bool isOwner, NetworkIdentity identity, NetworkWriterPooled ownerWriter, NetworkWriterPooled observersWriter)
         {
             // Only call SerializeAll if there are NetworkBehaviours
-            if (identity.NetworkBehaviours.Length == 0)
+            if (identity.NetworkBehaviours.Count == 0)
             {
                 return default;
             }
