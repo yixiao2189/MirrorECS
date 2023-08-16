@@ -1,6 +1,6 @@
 // for Unity 2020+ we use ILPostProcessor.
 // only automatically invoke it for older versions.
-#if !UNITY_2020_1_OR_NEWER
+#if !UNITY_2020_3_OR_NEWER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,7 +27,7 @@ namespace Mirror.Weaver
         // delete for subscription to Weaver error messages
         public static Action<string> OnWeaverError;
 
-        // controls weather Weaver errors are reported direct to the Unity console (tests enable this)
+        // controls whether Weaver errors are reported direct to the Unity console (tests enable this)
         public static bool UnityLogEnabled = true;
 
         [InitializeOnLoadMethod]
@@ -57,38 +57,34 @@ namespace Mirror.Weaver
                 }
             }
 
-#if UNITY_2019_3_OR_NEWER
             EditorUtility.RequestScriptReload();
-#else
-            UnityEditorInternal.InternalEditorUtility.RequestScriptReload();
-#endif
         }
 
         static Assembly FindCompilationPipelineAssembly(string assemblyName) =>
             CompilationPipeline.GetAssemblies().First(assembly => assembly.name == assemblyName);
 
-        static int CompilerMessagesContainError(CompilerMessage[] messages) {
-           return System.Array.FindIndex(messages, (msg => msg.type == CompilerMessageType.Error && !string.IsNullOrEmpty(msg.message)));
-        }
-           
+        static bool CompilerMessagesContainError(CompilerMessage[] messages) =>
+            messages.Any(msg => msg.type == CompilerMessageType.Error);
 
         public static void OnCompilationFinished(string assemblyPath, CompilerMessage[] messages)
         {
             // Do nothing if there were compile errors on the target
-            int errorIndex = CompilerMessagesContainError(messages);
-            if (errorIndex >= 0)
+            if (CompilerMessagesContainError(messages))
             {
-                Debug.Log($"Weaver: stop because compile errors on target {messages[errorIndex].message}");
+                Debug.Log("Weaver: stop because compile errors on target");
                 return;
             }
 
-            // Should not run on the editor only assemblies
-            if (assemblyPath.Contains("-Editor") || assemblyPath.Contains(".Editor"))
+            // Should not run on the editor only assemblies (test ones still need to be weaved)
+            if (assemblyPath.Contains("-Editor") || 
+                (assemblyPath.Contains(".Editor") && !assemblyPath.Contains(".Tests")))
             {
                 return;
             }
 
-            // don't weave mirror files
+            // skip Mirror.dll because CompilationFinishedHook can't weave itself.
+            // this would cause a sharing violation.
+            // skip Mirror.Weaver.dll too.
             string assemblyName = Path.GetFileNameWithoutExtension(assemblyPath);
             if (assemblyName == MirrorRuntimeAssemblyName || assemblyName == MirrorWeaverAssemblyName)
             {
@@ -129,7 +125,7 @@ namespace Mirror.Weaver
             {
                 // Set false...will be checked in \Editor\EnterPlayModeSettingsCheck.CheckSuccessfulWeave()
                 SessionState.SetBool("MIRROR_WEAVE_SUCCESS", false);
-                if (UnityLogEnabled) Debug.LogError("Weaving failed for: " + assemblyPath);
+                if (UnityLogEnabled) Debug.LogError($"Weaving failed for {assemblyPath}");
             }
         }
 

@@ -7,7 +7,9 @@ namespace Mirror.Examples.Tanks
     {
         [Header("Components")]
         public NavMeshAgent agent;
-        public Animator animator;
+        public Animator  animator;
+        public TextMesh  healthBar;
+        public Transform turret;
 
         [Header("Movement")]
         public float rotationSpeed = 100;
@@ -15,95 +17,48 @@ namespace Mirror.Examples.Tanks
         [Header("Firing")]
         public KeyCode shootKey = KeyCode.Space;
         public GameObject projectilePrefab;
-        public Transform projectileMount;
+        public Transform  projectileMount;
 
-        float horizontal = 0;
-        float vertical = 0;
-
-        EasyTimer timer = null;
-
-        private void Awake()
-        {
-            timer = new EasyTimer(5,()=>Time.time);
-        }
+        [Header("Stats")]
+        [SyncVar] public int health = 4;
 
         void Update()
         {
+            // always update health bar.
+            // (SyncVar hook would only update on clients, not on server)
+            healthBar.text = new string('-', health);
+            
+            // take input from focused window only
+            if(!Application.isFocused) return; 
+
             // movement for local player
-            if (!isLocalPlayer) return;
-
-            bool isFire = false;
-
-#if !CLIENT_TEST_MODE
-            // rotate
-            horizontal = Input.GetAxis("Horizontal");
-            vertical = Input.GetAxis("Vertical");
-            isFire = Input.GetKeyDown(shootKey);
-#else
-            if (!timer.IsInCD(1,false))
+            if (isLocalPlayer)
             {
-                horizontal = Mathf.Sign(UnityEngine.Random.Range(0,1f)-0.5f);
-                vertical = Mathf.Sign(UnityEngine.Random.Range(0, 1f) - 0.5f);
-                timer.Use(1,UnityEngine.Random.Range(1,3));
-            }
-
-
-            if (!timer.IsInCD(2,false))
-            {
-                isFire = true;
-                timer.Use(2,1);
-            }
-            else
-            {
-                isFire = false;
-            }
-#endif
-
-
+                // rotate
+                float horizontal = Input.GetAxis("Horizontal");
                 transform.Rotate(0, horizontal * rotationSpeed * Time.deltaTime, 0);
-            // move   
-            Vector3 forward = transform.TransformDirection(Vector3.forward);
-            agent.velocity = forward * Mathf.Max(vertical, 0) * agent.speed;
-            animator.SetBool("Moving", agent.velocity != Vector3.zero);
 
-            // shoot
-            if (isFire)
-            {
-                CmdFire();
+                // move
+                float vertical = Input.GetAxis("Vertical");
+                Vector3 forward = transform.TransformDirection(Vector3.forward);
+                agent.velocity = forward * Mathf.Max(vertical, 0) * agent.speed;
+                animator.SetBool("Moving", agent.velocity != Vector3.zero);
+
+                // shoot
+                if (Input.GetKeyDown(shootKey))
+                {
+                    CmdFire();
+                }
+
+                RotateTurret();
             }
         }
-
-        bool IsPressedDuraMode(string key,float cd,float duraMin,float duraMax)
-        {
-            var startTime = PlayerPrefs.GetFloat(key + "_Start", 0);
-            var endTime = startTime + PlayerPrefs.GetFloat(key+"_Dura",0);
-            if (Time.time >= startTime && Time.time < endTime)
-                return true;
-            if (Time.time > endTime)
-            {
-                PlayerPrefs.SetFloat(key + "_Start", Time.time + cd);
-                PlayerPrefs.SetFloat(key + "_Dura", Time.time + Random.Range(duraMin, duraMax));
-            }
-            return false;
-        }
-
-        bool IsPressedCDMode(string key, float cdMin,float cdMax)
-        {
-            var cdTime = PlayerPrefs.GetFloat(key + "_CD", 0);
-
-            if (Time.time < cdTime)
-                return false;
-            PlayerPrefs.SetFloat(key + "_CD", Time.time + Time.time + Random.Range(cdMin, cdMax));
-
-            return true;
-        }
-
 
         // this is called on the server
         [Command]
         void CmdFire()
         {
-            GameObject projectile = Instantiate(projectilePrefab, projectileMount.position, transform.rotation);
+            GameObject projectile = Instantiate(projectilePrefab, projectileMount.position, projectileMount.rotation);
             NetworkServer.Spawn(projectile);
             RpcOnFire();
         }
@@ -113,6 +68,28 @@ namespace Mirror.Examples.Tanks
         void RpcOnFire()
         {
             animator.SetTrigger("Shoot");
+        }
+
+        [ServerCallback]
+        void OnTriggerEnter(Collider other)
+        {
+            if (other.GetComponent<Projectile>() != null)
+            {
+                --health;
+                if (health == 0)
+                    NetworkServer.Destroy(gameObject);
+            }
+        }
+
+        void RotateTurret()
+        {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out RaycastHit hit, 100))
+            {
+                Debug.DrawLine(ray.origin, hit.point);
+                Vector3 lookRotation = new Vector3(hit.point.x, turret.transform.position.y, hit.point.z);
+                turret.transform.LookAt(lookRotation);
+            }
         }
     }
 }

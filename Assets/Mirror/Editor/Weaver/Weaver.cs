@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Mono.CecilX;
+using Mono.CecilX.Cil;
+using Mono.CecilX.Rocks;
 
 namespace Mirror.Weaver
 {
@@ -20,17 +22,45 @@ namespace Mirror.Weaver
         public const string MirrorAssemblyName = "Mirror";
 
         WeaverTypes weaverTypes;
-        WeaverLists weaverLists;
-        IAssemblyResolver Resolver;
+        SyncVarAccessLists syncVarAccessLists;
         AssemblyDefinition CurrentAssembly;
         Writers writers;
         Readers readers;
+
+        // in case of weaver errors, we don't stop immediately.
+        // we log all errors and then eventually return false if
+        // weaving has failed.
+        // this way the user can fix multiple errors at once, instead of having
+        // to fix -> recompile -> fix -> recompile for one error at a time.
         bool WeavingFailed;
 
         // logger functions can be set from the outside.
         // for example, Debug.Log or ILPostProcessor Diagnostics log for
         // multi threaded logging.
         public Logger Log;
+
+        // remote actions now support overloads,
+        // -> but IL2CPP doesnt like it when two generated methods
+        // -> have the same signature,
+        // -> so, append the signature to the generated method name,
+        // -> to create a unique name
+        // Example:
+        // RpcTeleport(Vector3 position) -> InvokeUserCode_RpcTeleport__Vector3()
+        // RpcTeleport(Vector3 position, Quaternion rotation) -> InvokeUserCode_RpcTeleport__Vector3Quaternion()
+        // fixes https://github.com/vis2k/Mirror/issues/3060
+        public static string GenerateMethodName(string initialPrefix, MethodDefinition md)
+        {
+            initialPrefix += md.Name;
+
+            for (int i = 0; i < md.Parameters.Count; ++i)
+            {
+                // with __ so it's more obvious that this is the parameter suffix.
+                // otherwise RpcTest(int) => RpcTestInt(int) which is not obvious.
+                initialPrefix += $"__{md.Parameters[i].ParameterType.Name}";
+            }
+
+            return initialPrefix;
+        }
 
         public Weaver(Logger Log)
         {
@@ -78,7 +108,7 @@ namespace Mirror.Weaver
             bool modified = false;
             foreach (TypeDefinition behaviour in behaviourClasses)
             {
-                modified |= new NetworkBehaviourProcessor(CurrentAssembly, weaverTypes, weaverLists, writers, readers, Log, behaviour).Process(ref WeavingFailed);
+                modified |= new NetworkBehaviourProcessor(CurrentAssembly, weaverTypes, syncVarAccessLists, writers, readers, Log, behaviour).Process(ref WeavingFailed);
             }
             return modified;
         }
@@ -90,7 +120,17 @@ namespace Mirror.Weaver
             Stopwatch watch = Stopwatch.StartNew();
             watch.Start();
 
-            foreach (TypeDefinition td in moduleDefinition.Types)
+            // ModuleDefinition.Types only finds top level types.
+            // GetAllTypes recursively finds all nested types as well.
+            // fixes nested types not being weaved, for example:
+            //     class Parent {              // ModuleDefinition.Types finds this
+            //         class Child {           // .Types.NestedTypes finds this
+            //             class GrandChild {} // only GetAllTypes finds this too
+            //         }
+            //     }
+            // note this is not about inheritance, only about type definitions.
+            // see test: NetworkBehaviourTests.DeeplyNested()
+            foreach (TypeDefinition td in moduleDefinition.GetAllTypes())
             {
                 if (td.IsClass && td.BaseType.CanBeResolved())
                 {
@@ -100,7 +140,7 @@ namespace Mirror.Weaver
             }
 
             watch.Stop();
-            Console.WriteLine("Weave behaviours and messages took " + watch.ElapsedMilliseconds + " milliseconds");
+            Console.WriteLine($"Weave behaviours and messages took {watch.ElapsedMilliseconds} milliseconds");
 
             return modified;
         }
@@ -112,6 +152,16 @@ namespace Mirror.Weaver
             GeneratedCodeClass = new TypeDefinition(GeneratedCodeNamespace, GeneratedCodeClassName,
                 TypeAttributes.BeforeFieldInit | TypeAttributes.Class | TypeAttributes.AnsiClass | TypeAttributes.Public | TypeAttributes.AutoClass | TypeAttributes.Abstract | TypeAttributes.Sealed,
                 weaverTypes.Import<object>());
+        }
+
+        void ToggleWeaverFuse()
+        {
+            // // find Weaved() function
+            MethodDefinition func = weaverTypes.weaverFuseMethod.Resolve();
+            // // change return 0 to return 1
+
+            ILProcessor worker = func.Body.GetILProcessor();
+            func.Body.Instructions[0] = worker.Create(OpCodes.Ldc_I4_1);
         }
 
         // Weave takes an AssemblyDefinition to be compatible with both old and
@@ -138,7 +188,6 @@ namespace Mirror.Weaver
             modified = false;
             try
             {
-                Resolver = resolver;
                 CurrentAssembly = assembly;
 
                 // fix "No writer found for ..." error
@@ -159,7 +208,7 @@ namespace Mirror.Weaver
                 CreateGeneratedCodeClass();
 
                 // WeaverList depends on WeaverTypes setup because it uses Import
-                weaverLists = new WeaverLists();
+                syncVarAccessLists = new SyncVarAccessLists();
 
                 // initialize readers & writers with this assembly.
                 // we need to do this in every Process() call.
@@ -187,7 +236,7 @@ namespace Mirror.Weaver
 
                 if (modified)
                 {
-                    PropertySiteProcessor.Process(moduleDefinition, weaverLists);
+                    SyncVarAttributeAccessReplacer.Process(Log, moduleDefinition, syncVarAccessLists);
 
                     // add class that holds read/write functions
                     moduleDefinition.Types.Add(GeneratedCodeClass);
@@ -201,11 +250,17 @@ namespace Mirror.Weaver
                     //CurrentAssembly.Write(new WriterParameters{ WriteSymbols = true });
                 }
 
+                // if weaving succeeded, switch on the Weaver Fuse in Mirror.dll
+                if (CurrentAssembly.Name.Name == MirrorAssemblyName)
+                {
+                    ToggleWeaverFuse();
+                }
+
                 return true;
             }
             catch (Exception e)
             {
-                Log.Error("Exception :" + e);
+                Log.Error($"Exception :{e}");
                 WeavingFailed = true;
                 return false;
             }
