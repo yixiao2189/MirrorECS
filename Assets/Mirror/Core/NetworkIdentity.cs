@@ -890,7 +890,7 @@ namespace Mirror
             var components = NetworkBehaviours;
             for (int i = 0; i < components.Count; ++i)
             {
-                ulong nthBit = (1u << i);
+                ulong nthBit = (1ul << i);
 
                 bool sync = (ComponentSyncBit & nthBit) != 0;
                 if (sync)
@@ -950,7 +950,7 @@ namespace Mirror
                 {
                     // set the n-th bit if dirty
                     // shifting from small to large numbers is varint-efficient.
-                    if (component.IsDirty()) mask |= (1u << i);
+                    if (component.IsDirty()) mask |= (1ul << i);
                 }
             }
 
