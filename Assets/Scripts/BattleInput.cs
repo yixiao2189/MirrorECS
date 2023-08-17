@@ -5,7 +5,6 @@ using Mirror;
 using System.Globalization;
 using UnityEngine.AI;
 using System;
-using static UnityEngine.EventSystems.StandaloneInputModule;
 
 public class BattleInput : MonoBehaviour
 {

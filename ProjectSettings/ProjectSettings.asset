@@ -155,7 +155,7 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
-    Standalone: com.UnityTechnologies.com.unity.multiplayer.samples.coop
+    Standalone: com.Unity-Technologies.com.unity.multiplayer.samples.coop
     iPhone: com.UnityTechnologies.com.unity.multiplayer.samples.coop
   buildNumber:
     Standalone: 0

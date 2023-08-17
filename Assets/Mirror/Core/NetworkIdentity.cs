@@ -313,6 +313,8 @@ namespace Mirror
                 component.netIdentity = this;
                 component.ComponentIndex = (byte)i;
             }
+
+            OnInitComponent?.Invoke(gameObject);
         }
 
         public void AddNetworkBehaviour(NetworkBehaviour networkBehaviour)
@@ -888,10 +890,21 @@ namespace Mirror
             var components = NetworkBehaviours;
             for (int i = 0; i < components.Count; ++i)
             {
-                NetworkBehaviour component = components[i];
-
-                bool dirty = component.IsDirty();
                 ulong nthBit = (1u << i);
+
+                bool sync = (ComponentSyncBit & nthBit) != 0;
+                if (sync)
+                {
+                    ownerMask |= nthBit;
+                    observerMask |= nthBit;
+                    continue;
+                }
+
+
+                NetworkBehaviour component = components[i];
+                if (component == null) continue;
+                bool dirty = component.IsDirty();
+            
 
                 // owner needs to be considered for both SyncModes, because
                 // Observers mode always includes the Owner.
@@ -949,7 +962,7 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsDirty(ulong mask, int index)
         {
-            ulong nthBit = (ulong)(1 << index);
+            ulong nthBit = (1ul << index);
             return (mask & nthBit) != 0;
         }
 
@@ -997,14 +1010,27 @@ namespace Mirror
                     // SyncDirection it's not guaranteed to be in owner anymore.
                     // so we need to serialize to temporary writer first.
                     // and then copy as needed.
+ 
                     bool ownerDirty = IsDirty(ownerMask, i);
                     bool observersDirty = IsDirty(observerMask, i);
                     if (ownerDirty || observersDirty)
                     {
+                        bool sync = (ComponentSyncBit & (1ul << i)) != 0;
+                        if (sync)
+                            ComponentSyncBit &= ~(1ul << i);
                         // serialize into helper writer
                         using (NetworkWriterPooled temp = NetworkWriterPool.Get())
                         {
-                            comp.Serialize(temp, initialState);
+                            if (comp == null)
+                            {
+                                temp.WriteInt(-1);
+                            }
+                            else
+                            {
+                                temp.WriteInt(ComponentIDs.Get(comp.GetType()));
+                                comp.Serialize(temp, initialState || sync);
+                            }
+                    
                             ArraySegment<byte> segment = temp.ToArraySegment();
 
                             // copy to owner / observers as needed
@@ -1065,14 +1091,30 @@ namespace Mirror
                 {
                     NetworkBehaviour comp = components[i];
 
+                    bool sync = (ComponentSyncBit & (1ul << i)) != 0;
+
+
+
                     // is this component dirty?
                     // reuse the mask instead of calling comp.IsDirty() again here.
                     if (IsDirty(dirtyMask, i))
                     // if (isOwned && component.syncDirection == SyncDirection.ClientToServer)
                     {
-                        // serialize into writer.
-                        // server always knows initialState, we never need to send it
-                        comp.Serialize(writer, false);
+                        if (sync)
+                            ComponentSyncBit &= ~(1ul << i);
+
+                        writer.WriteByte((byte)i);
+
+                        if (comp == null)
+                        {
+                            writer.WriteInt(-1);
+                        }
+                        else
+                        {
+                            writer.WriteInt(ComponentIDs.Get(comp.GetType()));
+                            comp.Serialize(writer, sync);
+                        }
+  
 
                         // clear dirty bits for the components that we serialized.
                         // do not clear for _all_ components, only the ones that
@@ -1139,16 +1181,92 @@ namespace Mirror
 
             // first we deserialize the varinted dirty mask
             ulong mask = Compression.DecompressVarUInt(reader);
+ 
+ 
 
             // now deserialize every dirty component
-            for (int i = 0; i < components.Count; ++i)
+            for (int index = 0; index < 64; ++index)
             {
                 // was this one dirty?
-                if (IsDirty(mask, i))
+                if (IsDirty(mask, index))
                 {
-                    // deserialize this component
-                    NetworkBehaviour comp = components[i];
-                    comp.Deserialize(reader, initialState);
+                    Debug.Log($"DeserializeClient : {index}");
+                    var compID = reader.ReadInt();
+                    if (compID < 0 && index < components.Count)
+                    {
+                        var comp = components[index];
+                        if (comp != null)
+                        {
+                            if (OnRecvRmComponent != null && !OnRecvRmComponent.Invoke(gameObject, comp.GetType()))
+                            {
+                                Destroy(comp);
+                            }
+
+                            components[index] = null;
+                        }
+
+                    }
+                    else if (index < components.Count)
+                    {
+                        var type = ComponentIDs.Get(compID);
+                        var comp = components[index];
+
+
+                        if (comp != null && comp.GetType() != type)
+                        {
+                            if (OnRecvRmComponent != null && !OnRecvRmComponent.Invoke(gameObject, comp.GetType()))
+                            {
+                                Destroy(comp);
+                            }
+                            comp = null;
+                        }
+
+                        if (comp == null)
+                        {
+                            if (OnRecvAddComponent != null)
+                                comp = OnRecvAddComponent.Invoke(gameObject, ComponentIDs.Get(compID)) as NetworkBehaviour;
+                            if (comp == null)
+                                comp = gameObject.AddComponent(ComponentIDs.Get(compID)) as NetworkBehaviour;
+                            components[index] = comp;
+                            comp.ComponentIndex = (byte)index;
+                            comp.netIdentity = this;
+                            initialState = true;
+
+                        }
+
+
+                        comp.Deserialize(reader, initialState);
+                    }
+                    else if (compID >= 0)
+                    {
+                        NetworkBehaviour comp = null;
+                        if (OnRecvAddComponent != null)
+                            comp = OnRecvAddComponent.Invoke(gameObject, ComponentIDs.Get(compID)) as NetworkBehaviour;
+                        if (comp == null)
+                            comp = gameObject.AddComponent(ComponentIDs.Get(compID)) as NetworkBehaviour;
+
+                        if (comp != null)
+                        {
+                            while (components.Count <= index)
+                            {
+                                components.Add(null);
+                            }
+
+                            components[index] = comp;
+                            comp.ComponentIndex = (byte)index;
+                            comp.netIdentity = this;
+                            initialState = true;
+
+
+                            comp.Deserialize(reader, initialState);
+                        }
+                        else
+                        {
+                            int contentSize = reader.ReadInt();
+                            reader.Position = reader.Position + contentSize;
+                        }
+                    }
+
                 }
             }
         }

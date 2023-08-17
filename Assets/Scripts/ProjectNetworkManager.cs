@@ -9,6 +9,7 @@ public class ProjectNetworkManager : NetworkManager
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
+
         Transform startPos = GetStartPosition();
         GameObject player = startPos != null
             ? Instantiate(playerPrefab, startPos.position, startPos.rotation)
@@ -25,6 +26,7 @@ public class ProjectNetworkManager : NetworkManager
         EgoHelper.AddNetComponentOnServer<Player>(eGo);
     }
 
+
     ECSStartup GetECSStartup()
     {
         var comp = gameObject.GetComponent<ECSStartup>();
@@ -38,22 +40,26 @@ public class ProjectNetworkManager : NetworkManager
 
 
         GetECSStartup().EndECS();
+        base.OnClientDisconnect();
     }
 
     public override void OnClientConnect()
     {
+    
         GetECSStartup().BeginECS();
         GetECSStartup().BeginClient();
+        base.OnClientConnect();
     }
 
 
 
     public override void OnStartServer()
     {
-        base.OnStartServer();
 
         GetECSStartup().BeginECS();
         GetECSStartup().BeginServer();
+
+        base.OnStartServer();
     }
 
 }
