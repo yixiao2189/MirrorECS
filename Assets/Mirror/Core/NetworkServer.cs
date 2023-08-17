@@ -1540,15 +1540,21 @@ namespace Mirror
             {
                 identity.destroyCalled = true;
 
-                // Destroy if application is running
-                if (Application.isPlaying)
-                {
-                    UnityEngine.Object.Destroy(identity.gameObject);
-                }
-                // Destroy can't be used in Editor during tests. use DestroyImmediate.
+                if (DestroyAction != null)
+                    DestroyAction(identity.gameObject);
                 else
-                {
-                    GameObject.DestroyImmediate(identity.gameObject);
+                {    
+                    // Destroy if application is running
+                    if (Application.isPlaying)
+                    {
+                        UnityEngine.Object.Destroy(identity.gameObject);
+                    }
+                    // Destroy can't be used in Editor during tests. use DestroyImmediate.
+                    else
+                    {
+                        GameObject.DestroyImmediate(identity.gameObject);
+                    }
+
                 }
             }
             // otherwise simply .Reset() and set inactive again
