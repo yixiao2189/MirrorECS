@@ -6,7 +6,8 @@ using UnityEngine.Video;
 
 public class ProjectNetworkManager : NetworkManager
 {
-    public override void OnServerAddPlayer(NetworkConnection conn)
+
+    public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         Transform startPos = GetStartPosition();
         GameObject player = startPos != null
@@ -32,20 +33,20 @@ public class ProjectNetworkManager : NetworkManager
         return comp;
     }
 
-    public override void OnClientConnect(NetworkConnection conn)
+    public override void OnClientDisconnect()
     {
-        base.OnClientConnect(conn);
-        GetECSStartup().BeginECS();
-        GetECSStartup().BeginClient();
-    }
-
-    public override void OnClientDisconnect(NetworkConnection conn)
-    {
-        base.OnClientDisconnect(conn);
 
 
         GetECSStartup().EndECS();
     }
+
+    public override void OnClientConnect()
+    {
+        GetECSStartup().BeginECS();
+        GetECSStartup().BeginClient();
+    }
+
+
 
     public override void OnStartServer()
     {

@@ -40,6 +40,11 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-identity")]
     public sealed class NetworkIdentity : MonoBehaviour
     {
+        public static Action<GameObject> OnInitComponent;
+        public static Func<GameObject, System.Type, Component> OnRecvAddComponent;
+        public static Func<GameObject, System.Type, bool> OnRecvRmComponent;
+        public ulong ComponentSyncBit = 0;
+
         /// <summary>Returns true if running as a client and this object was spawned by a server.</summary>
         //
         // IMPORTANT:
@@ -308,6 +313,45 @@ namespace Mirror
                 component.netIdentity = this;
                 component.ComponentIndex = (byte)i;
             }
+        }
+
+        public void AddNetworkBehaviour(NetworkBehaviour networkBehaviour)
+        {
+            int index = -1;
+            for (int i = 0; i < NetworkBehaviours.Count; i++)
+            {
+                if (NetworkBehaviours[i] == null)
+                {
+                    index = i;
+                    break;
+                }
+            }
+            if (index == -1)
+            {
+                index = NetworkBehaviours.Count;
+                NetworkBehaviours.Add(null);
+            }
+
+            NetworkBehaviours[index] = networkBehaviour;
+            networkBehaviour.netIdentity = this;
+            networkBehaviour.ComponentIndex = (byte)index;
+
+            if (index < 64)
+                ComponentSyncBit |= (1ul << index);
+        }
+
+        public void RemoveNetworkBehaviour(NetworkBehaviour networkBehaviour)
+        {
+            if (networkBehaviour == null) return;
+            int index = networkBehaviour.ComponentIndex;
+            if (index < 0 || index >= NetworkBehaviours.Count)
+                return;
+            if (NetworkBehaviours[index] != networkBehaviour)
+                return;
+            NetworkBehaviours[index] = null;
+
+            if (index < 64)
+                ComponentSyncBit |= (1ul << index);
         }
 
         void ValidateComponents()
@@ -676,6 +720,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStartServer should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
@@ -696,6 +741,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStartServer should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
@@ -722,6 +768,7 @@ namespace Mirror
             // Debug.Log($"OnStartClient {gameObject} netId:{netId}");
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStartClient should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
@@ -747,6 +794,7 @@ namespace Mirror
 
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStopClient should be caught, so that
                 // one component's exception doesn't stop all other components
                 // from being initialized
@@ -792,6 +840,7 @@ namespace Mirror
 
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStartLocalPlayer should be caught, so that
                 // one component's exception doesn't stop all other components
                 // from being initialized
@@ -812,6 +861,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStopLocalPlayer should be caught, so that
                 // one component's exception doesn't stop all other components
                 // from being initialized
@@ -1182,6 +1232,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 comp.ClearAllDirtyBits();
             }
         }
@@ -1336,6 +1387,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStartAuthority should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
@@ -1356,6 +1408,7 @@ namespace Mirror
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                if (comp == null) continue;
                 // an exception in OnStopAuthority should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
