@@ -7,7 +7,7 @@ public static class EgoSystems
     static List<EgoSystem> _systems = new List<EgoSystem>();
     public static List<EgoSystem> systems { get { return _systems; } }
 
-    public static void Add( params EgoSystem[] systems )
+    public static void Add(IEnumerable<EgoSystem> systems )
     {
         _systems.AddRange(systems);
     }

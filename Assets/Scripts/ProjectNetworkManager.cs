@@ -27,39 +27,27 @@ public class ProjectNetworkManager : NetworkManager
     }
 
 
-    ECSStartup GetECSStartup()
-    {
-        var comp = gameObject.GetComponent<ECSStartup>();
-        if (comp == null)
-            comp = gameObject.AddComponent<ECSStartup>();
-        return comp;
-    }
 
     public override void OnClientDisconnect()
     {
 
+        if (mode != NetworkManagerMode.ClientOnly)
+            return;
 
-        GetECSStartup().EndECS();
-        base.OnClientDisconnect();
+
+        ECSSystem.GetInstance().End();
     }
 
-    public override void OnClientConnect()
+    public override void OnStopServer()
     {
-    
-        GetECSStartup().BeginECS();
-        GetECSStartup().BeginClient();
-        base.OnClientConnect();
+
+        ECSSystem.GetInstance().End();
     }
 
 
-
-    public override void OnStartServer()
+    public override void OnStart()
     {
-
-        GetECSStartup().BeginECS();
-        GetECSStartup().BeginServer();
-
-        base.OnStartServer();
+        ECSSystem.GetInstance().Begin(mode);
     }
 
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
+[EgoSystem(EgoSide.SERVER)]
 public class LifeTimeSystem : EgoSystem<EgoConstraint<LifeTime>>
 {
     public override void Update()

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[EgoSystem(EgoSide.ALL,EgoLayer.Front,0)]
 public class ObjNameSystem : EgoSystem<EgoConstraint<ObjName>>
 {
     public override void Update()

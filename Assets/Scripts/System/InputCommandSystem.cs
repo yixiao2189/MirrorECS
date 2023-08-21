@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[EgoSystem(EgoSide.SERVER,EgoLayer.Front)]
 public class InputCommandSystem : EgoSystem<EgoConstraint<InputCommand>>
 {
     public override void Update()

@@ -394,6 +394,8 @@ namespace Mirror
             {
                 NetworkServer.SpawnObjects();
             }
+
+            OnStart();
         }
 
         void SetupClient()
@@ -440,6 +442,8 @@ namespace Mirror
             NetworkClient.Connect(networkAddress);
 
             OnStartClient();
+
+            OnStart();
         }
 
         /// <summary>Starts the client, connects it to the server via Uri</summary>
@@ -463,6 +467,8 @@ namespace Mirror
             NetworkClient.Connect(uri);
 
             OnStartClient();
+
+            OnStart();
         }
 
         /// <summary>Starts a network "host" - a server and client in the same application.</summary>
@@ -515,6 +521,8 @@ namespace Mirror
             {
                 FinishStartHost();
             }
+
+            OnStart();
         }
 
         // This may be set true in StartHost and is evaluated in FinishStartHost
@@ -1447,6 +1455,8 @@ namespace Mirror
 
         /// <summary>This is invoked when the client is started.</summary>
         public virtual void OnStartClient() { }
+
+        public virtual void OnStart() { }
 
         /// <summary>This is called when a server is stopped - including when a host is stopped.</summary>
         public virtual void OnStopServer() { }

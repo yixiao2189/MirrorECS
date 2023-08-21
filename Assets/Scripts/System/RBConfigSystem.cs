@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[EgoSystem(EgoSide.ALL)]
 public class RBConfigSystem : EgoSystem<EgoConstraint<RBConfig>>
 {
     public override void Update()

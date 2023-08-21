@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[EgoSystem(EgoSide.ALL,EgoLayer.Front,-10)]
 public class GameTimeSystem : EgoSystem<EgoConstraint<GameTime>>
 {
     public static System.DateTime SVR_REL_TIME = System.DateTime.Parse("2023-01-01");

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[EgoSystem(EgoSide.SERVER, EgoLayer.Front, -1)]
 public class BulletTriggerSystem : EgoSystem<EgoConstraint<Bullet,PhCollisionContainer>>
 {
     public override void Update()

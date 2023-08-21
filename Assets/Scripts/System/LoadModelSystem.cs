@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
+[EgoSystem(EgoSide.ALL,EgoLayer.Front,0)]
 public class LoadModelSystem : EgoSystem<EgoConstraint<LoadModel,NetworkIdentity>>
 {
     public override void Update()

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-
+[EgoSystem(EgoSide.ALL)]
 public class ColliderConfigSystem : EgoSystem<EgoConstraint<ColliderConfig>>
 {
     public override void Update()
