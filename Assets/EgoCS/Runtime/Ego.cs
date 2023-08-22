@@ -1,5 +1,4 @@
-﻿using Mirror;
-using UnityEngine;
+﻿using UnityEngine;
 
 public static class Ego
 {

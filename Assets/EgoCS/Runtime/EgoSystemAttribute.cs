@@ -25,7 +25,7 @@ public class EgoSystemAttribute : Attribute
     public EgoSystemAttribute(EgoSide side,EgoLayer layer = EgoLayer.NONE ,int priority = 0,bool active = true) {
         this.side = side;
         this.priority = priority;
-        
+        this.layer = layer;
         this.acitve = active;
     }
 

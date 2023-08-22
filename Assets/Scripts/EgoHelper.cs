@@ -1,7 +1,22 @@
 using Mirror;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
+public class EgoComponentRegister : IEgoComponentRegister
+{
+    static readonly List<Type> types = new List<Type>
+    {
+        typeof(NetworkIdentity),
+        typeof(NetworkBehaviour)
+    };
+
+    public List<Type> GetTypes()
+    {
+        return types;
+    }
+}
 
 public static class EgoHelper 
 {

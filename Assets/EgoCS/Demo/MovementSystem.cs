@@ -20,8 +20,6 @@ public class MovementSystem : EgoSystem<
             var cubeEgoComponent = Ego.AddGameObject(go);
             cubeEgoComponent.gameObject.name = $"{i}";
             cubeEgoComponent.transform.position = Vector3.zero;
-            Ego.AddComponent<OnTriggerEnterComponent>(cubeEgoComponent);
-    
 
             // Add a Movement Component to the Cube
             var moveComp = Ego.AddComponent<Movement>(cubeEgoComponent);
